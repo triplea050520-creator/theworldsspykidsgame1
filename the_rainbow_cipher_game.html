@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Rainbow Cipher</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap');
+
+  :root {
+    --bg: #05050b;
+    --panel: rgba(12, 13, 24, 0.92);
+    --text: #e8ecff;
+    --muted: #7c829c;
+    --border: rgba(255,255,255,0.16);
+    --red: #ff3045;
+    --orange: #ff8a1f;
+    --yellow: #ffd84a;
+    --green: #35e66d;
+    --blue: #35a7ff;
+    --indigo: #4b4dff;
+    --violet: #b84dff;
+    --ok: #47ffaa;
+    --bad: #ff4455;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 10% 15%, rgba(255,48,69,.16), transparent 25%),
+      radial-gradient(circle at 30% 90%, rgba(53,230,109,.12), transparent 28%),
+      radial-gradient(circle at 82% 18%, rgba(184,77,255,.17), transparent 28%),
+      radial-gradient(circle at 88% 82%, rgba(53,167,255,.12), transparent 30%),
+      linear-gradient(135deg, #04050a, #080813 55%, #030306);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(255,255,255,.014) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(0,0,0,.08) 4px 5px),
+      radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.62) 100%);
+  }
+
+  @keyframes prism {
+    0%,100% { filter: hue-rotate(0deg); }
+    50% { filter: hue-rotate(18deg); }
+  }
+
+  @keyframes reveal {
+    from { opacity: 0; letter-spacing: .05em; filter: blur(10px); }
+    to { opacity: 1; letter-spacing: .25em; filter: blur(0); }
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-7px); }
+    40% { transform: translateX(7px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  .app {
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 10px;
+  }
+
+  .card {
+    width: min(1040px, 100%);
+    height: min(720px, calc(100svh - 20px));
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.07), transparent 32%),
+      linear-gradient(180deg, rgba(12,13,24,.94), rgba(4,5,10,.90));
+    box-shadow:
+      0 28px 90px rgba(0,0,0,.46),
+      inset 0 0 0 1px rgba(255,255,255,.035);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--red), var(--orange), var(--yellow), var(--green), var(--blue), var(--indigo), var(--violet));
+  }
+
+  .top {
+    text-align: center;
+    padding: 18px 20px 8px;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    display: inline-flex;
+    border: 1px solid rgba(255,255,255,.18);
+    background: rgba(255,255,255,.055);
+    color: #ffffff;
+    padding: 5px 13px;
+    border-radius: 999px;
+    font-size: 9px;
+    letter-spacing: .25em;
+    margin-bottom: 10px;
+  }
+
+  .title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(27px, 5vw, 54px);
+    font-weight: 900;
+    letter-spacing: .12em;
+    color: #fff;
+    line-height: 1;
+    text-shadow:
+      0 0 18px rgba(255,255,255,.18),
+      0 0 38px rgba(184,77,255,.18);
+  }
+
+  .sub {
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: .28em;
+  }
+
+  .brief {
+    margin: 10px auto 0;
+    max-width: 720px;
+    line-height: 1.55;
+    color: #adb4c9;
+    font-size: 12px;
+  }
+
+  .brief strong { color: #fff; font-weight: normal; }
+
+  .game {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stage {
+    padding: 8px 22px 18px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .shape-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: clamp(8px, 1.4vw, 14px);
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    margin: 8px auto 14px;
+  }
+
+  .shape-card {
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 20px;
+    background:
+      radial-gradient(circle at 50% 38%, rgba(255,255,255,.08), transparent 48%),
+      linear-gradient(180deg, rgba(255,255,255,.045), rgba(0,0,0,.24));
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    min-height: 0;
+    position: relative;
+  }
+
+  .shape-card::before {
+    content: "";
+    position: absolute;
+    inset: 14%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.09), transparent 68%);
+  }
+
+  .shape {
+    width: min(72%, 132px);
+    aspect-ratio: 1;
+    position: relative;
+    z-index: 2;
+    animation: prism 8s ease-in-out infinite;
+    filter: drop-shadow(0 0 18px rgba(255,255,255,.16));
+  }
+
+  .circle {
+    border-radius: 50%;
+    background: var(--violet);
+    box-shadow: 0 0 28px rgba(184,77,255,.42);
+  }
+
+  .diamond {
+    transform: rotate(45deg);
+    background: var(--red);
+    box-shadow: 0 0 28px rgba(255,48,69,.42);
+  }
+
+  .triangle {
+    width: 0;
+    height: 0;
+    aspect-ratio: auto;
+    border-left: min(4.7vw, 58px) solid transparent;
+    border-right: min(4.7vw, 58px) solid transparent;
+    border-bottom: min(8vw, 110px) solid var(--blue);
+    filter: drop-shadow(0 0 18px rgba(53,167,255,.42));
+  }
+
+  .hex {
+    background: var(--yellow);
+    clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%);
+    box-shadow: 0 0 28px rgba(255,216,74,.42);
+  }
+
+  .pill {
+    width: min(78%, 145px);
+    height: min(44%, 84px);
+    border-radius: 999px;
+    background: var(--green);
+    box-shadow: 0 0 28px rgba(53,230,109,.42);
+  }
+
+  .input-panel {
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 16px;
+    background: rgba(0,0,0,.22);
+    padding: 13px;
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .input-label {
+    color: var(--muted);
+    font-size: 9px;
+    letter-spacing: .25em;
+    margin-bottom: 8px;
+  }
+
+  .code-input {
+    width: min(270px, 100%);
+    background: #050913;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 12px;
+    color: #fff;
+    padding: 10px 12px;
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    letter-spacing: .32em;
+    outline: none;
+    box-shadow: inset 0 0 20px rgba(0,0,0,.35);
+  }
+
+  .code-input:focus {
+    border-color: var(--blue);
+  }
+
+  .btn-row {
+    display: flex;
+    justify-content: center;
+    gap: 9px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+
+  .btn {
+    border: 1px solid rgba(255,255,255,.24);
+    background: transparent;
+    color: #fff;
+    border-radius: 10px;
+    padding: 9px 15px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .2em;
+  }
+
+  .btn.secondary {
+    color: #b7c0d8;
+  }
+
+  .message {
+    min-height: 18px;
+    margin-top: 9px;
+    font-size: 11px;
+    letter-spacing: .12em;
+  }
+
+  .message.ok { color: var(--ok); }
+  .message.err { color: var(--bad); }
+
+  .success {
+    display: none;
+    text-align: center;
+    padding: 30px 20px;
+    height: 100%;
+    place-content: center;
+  }
+
+  .success.active { display: grid; }
+  .game.hidden { display: none; }
+
+  .success-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(34px, 7vw, 66px);
+    color: var(--ok);
+    animation: reveal .8s ease forwards;
+    text-shadow: 0 0 42px rgba(71,255,170,.5);
+  }
+
+  .success-sub {
+    margin-top: 14px;
+    color: #72dca8;
+    font-size: 12px;
+    letter-spacing: .2em;
+  }
+
+  .revealed-code {
+    margin: 24px auto 18px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .digit {
+    width: clamp(46px, 10vw, 64px);
+    height: clamp(56px, 12vw, 74px);
+    border: 2px solid var(--ok);
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    color: var(--ok);
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(22px, 5vw, 32px);
+    background: rgba(71,255,170,.06);
+    box-shadow: 0 0 20px rgba(71,255,170,.16);
+  }
+
+  .shake { animation: shake .38s ease; }
+
+  @media (max-width: 760px) {
+    .card {
+      height: calc(100svh - 16px);
+      border-radius: 18px;
+    }
+
+    .top {
+      padding: 13px 12px 5px;
+    }
+
+    .brief {
+      font-size: 10px;
+      line-height: 1.4;
+      margin-top: 7px;
+    }
+
+    .stage {
+      padding: 6px 10px 10px;
+    }
+
+    .shape-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .shape-card {
+      border-radius: 12px;
+    }
+
+    .shape {
+      width: 82%;
+    }
+
+    .triangle {
+      border-left-width: 7vw;
+      border-right-width: 7vw;
+      border-bottom-width: 12vw;
+    }
+
+    .badge {
+      display: none;
+    }
+
+    .title {
+      font-size: clamp(21px, 6vw, 34px);
+    }
+
+    .sub {
+      font-size: 8px;
+      letter-spacing: .16em;
+    }
+
+    .input-panel {
+      padding: 9px;
+    }
+
+    .code-input {
+      font-size: 16px;
+      padding: 8px 10px;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      font-size: 9px;
+    }
+  }
+
+  @media (max-height: 600px) {
+    .brief {
+      display: none;
+    }
+
+    .top {
+      padding-bottom: 4px;
+    }
+
+    .sub {
+      margin-top: 4px;
+    }
+
+    .stage {
+      padding-top: 4px;
+    }
+
+    .input-panel {
+      padding: 8px;
+    }
+
+    .message {
+      display: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<main class="app">
+  <section class="card" id="card">
+    <div class="game" id="game">
+      <div class="top">
+        <div class="badge">◈ SPECTRUM IMAGE CIPHER ◈</div>
+        <h1 class="title">THE RAINBOW CIPHER</h1>
+        <div class="sub">COLOUR IS THE KEY</div>
+        <p class="brief">
+          Five coloured shapes are displayed below. There are no labels, no colour names, and no numbers.
+          Decode the hidden <strong>five-digit disarm code</strong>.
+        </p>
+      </div>
+
+      <div class="stage">
+        <div class="shape-grid" aria-label="Five coloured shape clues">
+          <!-- Order chosen: Violet, Red, Blue, Yellow, Green = 7 1 5 3 4 -->
+          <div class="shape-card" aria-label="colour clue"><div class="shape circle"></div></div>
+          <div class="shape-card" aria-label="colour clue"><div class="shape diamond"></div></div>
+          <div class="shape-card" aria-label="colour clue"><div class="shape triangle"></div></div>
+          <div class="shape-card" aria-label="colour clue"><div class="shape hex"></div></div>
+          <div class="shape-card" aria-label="colour clue"><div class="shape pill"></div></div>
+        </div>
+
+        <div class="input-panel">
+          <div class="input-label">ENTER DISARM CODE</div>
+          <input class="code-input" id="answer" maxlength="5" inputmode="numeric" autocomplete="off" placeholder="-----" />
+          <div class="btn-row">
+            <button class="btn" onclick="checkAnswer()">CONFIRM</button>
+            <button class="btn secondary" onclick="resetGame()">RESET</button>
+          </div>
+          <div class="message" id="message"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="success" id="success">
+      <div class="success-title">DEFUSED</div>
+      <div class="success-sub">RAINBOW CIPHER SOLVED</div>
+      <div class="revealed-code">
+        <div class="digit">7</div>
+        <div class="digit">1</div>
+        <div class="digit">5</div>
+        <div class="digit">3</div>
+        <div class="digit">4</div>
+      </div>
+      <button class="btn" onclick="resetGame()">PLAY AGAIN</button>
+    </div>
+  </section>
+</main>
+
+<script>
+  const ANSWER = "71534";
+
+  const answerInput = document.getElementById("answer");
+  const message = document.getElementById("message");
+  const card = document.getElementById("card");
+
+  answerInput.addEventListener("input", () => {
+    answerInput.value = answerInput.value.replace(/\D/g, "").slice(0, 5);
+  });
+
+  answerInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") checkAnswer();
+  });
+
+  function checkAnswer() {
+    const val = answerInput.value.trim();
+    if (val === ANSWER) {
+      message.className = "message ok";
+      message.textContent = "✓ CODE ACCEPTED";
+      setTimeout(() => {
+        document.getElementById("game").classList.add("hidden");
+        document.getElementById("success").classList.add("active");
+      }, 350);
+    } else {
+      message.className = "message err";
+      message.textContent = "✗ CODE REJECTED";
+      card.classList.remove("shake");
+      void card.offsetWidth;
+      card.classList.add("shake");
+      setTimeout(() => card.classList.remove("shake"), 400);
+    }
+  }
+
+  function resetGame() {
+    answerInput.value = "";
+    message.className = "message";
+    message.textContent = "";
+    document.getElementById("success").classList.remove("active");
+    document.getElementById("game").classList.remove("hidden");
+    setTimeout(() => answerInput.focus(), 80);
+  }
+
+  setTimeout(() => answerInput.focus(), 150);
+</script>
+</body>
+</html>
